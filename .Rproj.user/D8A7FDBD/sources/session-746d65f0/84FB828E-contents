@@ -1,0 +1,6 @@
+# svenski code
+Sys.setenv(RETICULATE_PYTHON = "/Users/rasools/miniconda3/envs/svenski/bin/python")
+library(reticulate)
+library(spacyr)
+library(shiny)
+library(DT)
