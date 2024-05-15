@@ -12,7 +12,7 @@ spacy_initialize(model = "sv_core_news_md")
 txt <- "Jag körde en bil till Stockholm."
 consolidatedtxt <- entity_consolidate(spacy_parse(txt, lemma = FALSE, entity = TRUE, nounphrase = TRUE))
 
-api_key <- ""
+api_key <- "sk-rasool-test-api-key-lo834tJNu7p6B9Avy0kbT3BlbkFJAfKFLiSWhoKcdLaHoX12"
 prompt <- "R code to remove duplicates using dplyr. Do not write explanations on replies."
 
 response <- POST(
@@ -31,6 +31,7 @@ response <- POST(
 )
 
 content(response)
+
 
 
 

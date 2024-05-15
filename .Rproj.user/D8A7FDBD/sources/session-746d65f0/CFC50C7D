@@ -3,7 +3,7 @@
     "path": "~/Library/CloudStorage/OneDrive-Chalmers/Documents/github/svenski/svenski.R",
     "project_path": "svenski.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "2198304035",
     "contents": "",
     "dirty": false,
     "created": 1715757133695.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "12,26",
+        "cursorPosition": "33,0",
         "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1715766858,
+    "lastKnownWriteTime": 1715780772,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1715766858587,
+    "last_content_update": 1715780772064,
     "read_only": false,
     "read_only_alternatives": []
 }
