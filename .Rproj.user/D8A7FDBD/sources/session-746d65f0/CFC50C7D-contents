@@ -13,7 +13,7 @@ txt <- "Jag körde en bil till Stockholm."
 consolidatedtxt <- entity_consolidate(spacy_parse(txt, lemma = FALSE, entity = TRUE, nounphrase = TRUE))
 
 api_key <- "sk-rasool-test-api-key-lo834tJNu7p6B9Avy0kbT3BlbkFJAfKFLiSWhoKcdLaHoX12"
-prompt <- "R code to remove duplicates using dplyr. Do not write explanations on replies."
+prompt <- "Jag heter Rasool"
 
 response <- POST(
   url = "https://api.openai.com/v1/chat/completions", 
