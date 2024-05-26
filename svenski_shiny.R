@@ -13,6 +13,7 @@ server <- function(input, output, session) {
   values <- reactiveValues(apiKey = NULL)
   
   # Function to query ChatGPT API
+#  chatGPT <- function(prompt, modelName = "gpt-4o", temperature = 1, apiKey) {
   chatGPT <- function(prompt, modelName = "gpt-3.5-turbo", temperature = 1, apiKey) {
     response <- POST(
       url = "https://api.openai.com/v1/chat/completions",
@@ -61,28 +62,65 @@ server <- function(input, output, session) {
   # Function to perform analysis
   performAnalysis <- function(txt, apiKey) {
     consolidatedtxt <- entity_consolidate(spacy_parse(txt, lemma = FALSE, entity = TRUE, nounphrase = TRUE))
+    print(consolidatedtxt)
+    prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
+    response <- chatGPT(prompt, apiKey = apiKey)
+    values$results <- parseResults(response)
+    res <- parseResults(response)
+    print(res)
+    
+    # verb
     if (consolidatedtxt$pos[1] == "VERB") {
-      prompt <- createPrompt(consolidatedtxt$token[1])
+      prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
       response <- chatGPT(prompt, apiKey = apiKey)
       values$results <- parseResults(response)
-      output$result <- NULL  # clear previous results
     }
+    
+    # noun
+    else if (consolidatedtxt$pos[1] == "NOUN") {
+      prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
+      response <- chatGPT(prompt, apiKey = apiKey)
+      values$results <- parseResults(response)
+    }
+    
+    # adjective
+    else if (consolidatedtxt$pos[1] == "ADJ") {
+      prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
+      response <- chatGPT(prompt, apiKey = apiKey)
+      values$results <- parseResults(response)
+    }
+    
+    # pronoun
+    else if (consolidatedtxt$pos[1] == "PRON") {
+      prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
+      response <- chatGPT(prompt, apiKey = apiKey)
+      values$results <- parseResults(response)
+    }
+
+    output$result <- NULL  # clear previous results
   }
   
-  createPrompt <- function(verb) {
-    # Read supporting file and prepare it for the prompt
-    lines <- readLines("temp_tables/verb.txt")
-    table_string <- paste(
-      lines[which(grepl("Category \\| Details", lines)):which(grepl("Supinum example sentence \\|", lines))],
-      collapse = "\n"
-    )
-    paste(verb, "is a Swedish verb. Please fill in the blanks:",
-          table_string, sep = "\n")
+  # createPrompt
+  createPrompt <- function(verb, pos, consolidatedtxt) {
+    path_template <- sprintf("temp_tables/%s.txt", tolower(pos))
+    
+    if (file.exists(path_template)) {
+      lines <- readLines(path_template)
+      table_string <- paste(
+        lines[which(grepl("Category \\| Details", lines)):which(lines == "End |")],
+        collapse = "\n"
+      )
+      paste(verb, sprintf("is a Swedish %s. Please fill in the blanks:", tolower(pos)),
+            table_string, sep = "\n")
+    } else { 
+      paste("No template found for", pos)
+    }
   }
   
   parseResults <- function(response) {
     lines <- strsplit(response, "\n")[[1]]
-    lines <- lines[-1]
+    lines <- lines[-1]  # remove the first line which is the prompt
+    lines <- lines[-length(lines)]  # remove the last line which is the user's response
     keys <- sub("\\|.*", "", lines)
     values <- sub(".*\\| ", "", lines)
     data.frame(Property = keys, Details = values, stringsAsFactors = FALSE)
@@ -114,10 +152,10 @@ server <- function(input, output, session) {
 }
 
 ui <- fluidPage(
-  titlePanel("Swedish Verb Anki Card Helper"),
+  titlePanel("Svenski: Your Swedish Anki assistant"),
   sidebarLayout(
     sidebarPanel(
-      textInput("text", "Enter a Swedish verb:", value = ""),
+      textInput("text", "Enter a Swedish word / phrase:", value = ""),
       actionButton("submit", "Submit")
     ),
     mainPanel(
