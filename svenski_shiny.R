@@ -13,8 +13,8 @@ server <- function(input, output, session) {
   values <- reactiveValues(apiKey = NULL)
   
   # Function to query ChatGPT API
-#  chatGPT <- function(prompt, modelName = "gpt-4o", temperature = 1, apiKey) {
-  chatGPT <- function(prompt, modelName = "gpt-3.5-turbo", temperature = 1, apiKey) {
+  chatGPT <- function(prompt, modelName = "gpt-4o", temperature = 1, apiKey) {
+#  chatGPT <- function(prompt, modelName = "gpt-3.5-turbo", temperature = 1, apiKey) {
     response <- POST(
       url = "https://api.openai.com/v1/chat/completions",
       add_headers(Authorization = paste("Bearer", apiKey)),
@@ -62,44 +62,48 @@ server <- function(input, output, session) {
   # Function to perform analysis
   performAnalysis <- function(txt, apiKey) {
     consolidatedtxt <- entity_consolidate(spacy_parse(txt, lemma = FALSE, entity = TRUE, nounphrase = TRUE))
-    print(consolidatedtxt)
-    prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
-    response <- chatGPT(prompt, apiKey = apiKey)
-    values$results <- parseResults(response)
-    res <- parseResults(response)
-    print(res)
-    
-    # verb
-    if (consolidatedtxt$pos[1] == "VERB") {
-      prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
+    if (length(consolidatedtxt$token) > 1) {
+      prompt <- createPrompt(txt, "phrase", consolidatedtxt)
       response <- chatGPT(prompt, apiKey = apiKey)
       values$results <- parseResults(response)
     }
-    
-    # noun
-    else if (consolidatedtxt$pos[1] == "NOUN") {
-      prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
-      response <- chatGPT(prompt, apiKey = apiKey)
-      values$results <- parseResults(response)
-    }
-    
-    # adjective
-    else if (consolidatedtxt$pos[1] == "ADJ") {
-      prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
-      response <- chatGPT(prompt, apiKey = apiKey)
-      values$results <- parseResults(response)
-    }
-    
-    # pronoun
-    else if (consolidatedtxt$pos[1] == "PRON") {
+    else {
       prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
       response <- chatGPT(prompt, apiKey = apiKey)
       values$results <- parseResults(response)
-    }
+      res <- parseResults(response)
 
-    output$result <- NULL  # clear previous results
+      # verb
+      if (consolidatedtxt$pos[1] == "VERB") {
+        prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
+        response <- chatGPT(prompt, apiKey = apiKey)
+        values$results <- parseResults(response)
+      }
+      
+      # noun
+      else if (consolidatedtxt$pos[1] == "NOUN") {
+        prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
+        response <- chatGPT(prompt, apiKey = apiKey)
+        values$results <- parseResults(response)
+      }
+      
+      # adjective
+      else if (consolidatedtxt$pos[1] == "ADJ") {
+        prompt <- createPrompt(res$Details[7], consolidatedtxt$pos[1], consolidatedtxt)
+        response <- chatGPT(prompt, apiKey = apiKey)
+        values$results <- parseResults(response)
+      }
+      
+      # pronoun
+      else if (consolidatedtxt$pos[1] == "PRON") {
+        prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
+        response <- chatGPT(prompt, apiKey = apiKey)
+        values$results <- parseResults(response)
+      }
+      output$result <- NULL  # clear previous results
+    }
+    print(prompt)
   }
-  
   # createPrompt
   createPrompt <- function(verb, pos, consolidatedtxt) {
     path_template <- sprintf("temp_tables/%s.txt", tolower(pos))
@@ -111,7 +115,7 @@ server <- function(input, output, session) {
         collapse = "\n"
       )
       paste(verb, sprintf("is a Swedish %s. Please fill in the blanks:", tolower(pos)),
-            table_string, sep = "\n")
+            table_string, "For example sentences, please provide sentences with atleast 7 words in each sentence, and put the meaning in English in the end of the sentence." ,sep = "\n")
     } else { 
       paste("No template found for", pos)
     }
@@ -152,7 +156,7 @@ server <- function(input, output, session) {
 }
 
 ui <- fluidPage(
-  titlePanel("Svenski: Your Swedish Anki assistant"),
+  titlePanel("Svenski: Your Anki assistant for learning Svenska!"),
   sidebarLayout(
     sidebarPanel(
       textInput("text", "Enter a Swedish word / phrase:", value = ""),
