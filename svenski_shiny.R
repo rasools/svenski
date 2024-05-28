@@ -109,7 +109,7 @@ server <- function(input, output, session) {
         collapse = "\n"
       )
       paste(verb, sprintf("is a Swedish %s. Please fill in the blanks:", tolower(pos)),
-            table_string, "For example sentences in the table, please provide sentences with atleast 20 words in each sentence, and put the meaning in English in the end of the sentence." ,sep = "\n")
+            table_string, "For example sentences in the table, please provide sentences with atleast 15 words in each sentence, and put the meaning in English in the end of the sentence." ,sep = "\n")
     } else { 
       paste("No template found for", pos)
     }
