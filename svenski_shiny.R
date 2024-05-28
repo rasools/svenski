@@ -13,8 +13,7 @@ server <- function(input, output, session) {
   values <- reactiveValues(apiKey = NULL)
   
   # Function to query ChatGPT API
-  chatGPT <- function(prompt, modelName = "gpt-4o", temperature = 1, apiKey) {
-#  chatGPT <- function(prompt, modelName = "gpt-3.5-turbo", temperature = 1, apiKey) {
+  chatGPT <- function(prompt, modelName = "gpt-3.5-turbo", temperature = 1, apiKey) {
     response <- POST(
       url = "https://api.openai.com/v1/chat/completions",
       add_headers(Authorization = paste("Bearer", apiKey)),
@@ -26,81 +25,76 @@ server <- function(input, output, session) {
         messages = list(list(role = "user", content = prompt))
       )
     )
-    stop_for_status(response)  # will throw an error if the request failed
+    stop_for_status(response) 
     trimws(content(response)$choices[[1]]$message$content)
   }
   
-  # Observe the submit button click
   observeEvent(input$submit, {
     req(input$text)
-    txt <- input$text
-    
-    # Check if API key is already saved
     if (is.null(values$apiKey) || values$apiKey == "") {
-      # Show modal dialog to ask for API key
       showModal(modalDialog(
         title = "API Key Required",
-        textInput("apiKeyInput", "Enter API Key:", value = ""),
+        passwordInput("apiKeyInput", "Enter API Key:", value = ""),
         footer = tagList(
           modalButton("Cancel"),
-          actionButton("save", "Save")
+          actionButton("save", "Save"),
+          tags$p("Your API key will not be saved by the app and will only be used to query the OpenAI API.", style = "font-size: 10px; text-align: left;")
         )
       ))
     } else {
-      performAnalysis(txt, values$apiKey)
+      performAnalysis(input$text, input$modelSelect, values$apiKey)
     }
   })
   
-  # Observe save button in modal dialog
   observeEvent(input$save, {
-    req(input$apiKeyInput)  # Make sure the API key was entered
+    req(input$apiKeyInput)
     values$apiKey <- input$apiKeyInput
     removeModal()
-    performAnalysis(input$text, values$apiKey)  # Call the main analysis function
+    performAnalysis(input$text, input$modelSelect, values$apiKey)
   })
   
   # Function to perform analysis
-  performAnalysis <- function(txt, apiKey) {
+  performAnalysis <- function(txt, modelName, apiKey) {
     consolidatedtxt <- entity_consolidate(spacy_parse(txt, lemma = FALSE, entity = TRUE, nounphrase = TRUE))
     if (length(consolidatedtxt$token) > 1) {
       prompt <- createPrompt(txt, "phrase", consolidatedtxt)
-      response <- chatGPT(prompt, apiKey = apiKey)
+      response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
       values$results <- parseResults(response)
     }
     else {
       prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
-      response <- chatGPT(prompt, apiKey = apiKey)
+      response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
       values$results <- parseResults(response)
       res <- parseResults(response)
 
       # verb
       if (consolidatedtxt$pos[1] == "VERB") {
         prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, apiKey = apiKey)
+        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         values$results <- parseResults(response)
       }
       
       # noun
       else if (consolidatedtxt$pos[1] == "NOUN") {
         prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, apiKey = apiKey)
+        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         values$results <- parseResults(response)
       }
       
       # adjective
       else if (consolidatedtxt$pos[1] == "ADJ") {
         prompt <- createPrompt(res$Details[7], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, apiKey = apiKey)
+        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         values$results <- parseResults(response)
       }
       
       # pronoun
       else if (consolidatedtxt$pos[1] == "PRON") {
         prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, apiKey = apiKey)
+        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         values$results <- parseResults(response)
       }
-      output$result <- NULL  # clear previous results
+      output$result <- NULL
     }
     print(prompt)
   }
@@ -115,7 +109,7 @@ server <- function(input, output, session) {
         collapse = "\n"
       )
       paste(verb, sprintf("is a Swedish %s. Please fill in the blanks:", tolower(pos)),
-            table_string, "For example sentences, please provide sentences with atleast 7 words in each sentence, and put the meaning in English in the end of the sentence." ,sep = "\n")
+            table_string, "For example sentences in the table, please provide sentences with atleast 20 words in each sentence, and put the meaning in English in the end of the sentence." ,sep = "\n")
     } else { 
       paste("No template found for", pos)
     }
@@ -140,12 +134,11 @@ server <- function(input, output, session) {
           extend = 'copy',
           text = 'Copy to clipboard',
           exportOptions = list(
-            modifier = list(page = 'all'),  # ensure all data is copied, not just what's visible
-            columns = 1:(ncol(values$results)),  # allows copying only visible columns if some are toggled off
-            stripHtml = FALSE,  # stops the copying from stripping out HTML elements if any
-            stripNewlines = FALSE,  # prevents stripping newlines
-#            format = list(header = FALSE),
-            columns_titles = FALSE  # this option does not exist but explains the conceptual need
+            modifier = list(page = 'all'),
+            columns = 1:(ncol(values$results)),
+            stripHtml = FALSE,
+            stripNewlines = FALSE,
+            columns_titles = FALSE
           )
         ),
         'csv', 'excel', 'pdf', 'print'  # other buttons
@@ -156,16 +149,27 @@ server <- function(input, output, session) {
 }
 
 ui <- fluidPage(
-  titlePanel("Svenski: Your Anki assistant for learning Svenska!"),
+  titlePanel("Svenski: Din Anki-assistent för att Lära Dig Svenska!"),
   sidebarLayout(
     sidebarPanel(
       textInput("text", "Enter a Swedish word / phrase:", value = ""),
+      selectInput("modelSelect", "Choose Model:",
+                  choices = c("gpt-4o" = "gpt-4o", 
+                              "gpt-3.5-turbo" = "gpt-3.5-turbo"),
+                  selected = "gpt-3.5-turbo"),
       actionButton("submit", "Submit")
     ),
     mainPanel(
       DTOutput("resultsTable")
     )
-  )
+  ),
+  tags$script(HTML("
+    $(document).on('keydown', '#text', function(e) {
+      if(e.keyCode == 13) {
+        $('#submit').click();
+      }
+    });
+  "))
 )
 
 shinyApp(ui = ui, server = server)

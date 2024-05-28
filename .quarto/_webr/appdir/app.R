@@ -16,7 +16,7 @@ ui <- fluidPage(
             actionButton("go", "Analyze Text")
         ),
         mainPanel(
-            DTOutput("table")  # DTOutput is part of the DT package
+            DTOutput("table")
         )
     )
 )
@@ -24,14 +24,14 @@ ui <- fluidPage(
 # Define the Server Logic
 server <- function(input, output, session) {
     results <- eventReactive(input$go, {
-        req(input$text)  # ensure there's text input before processing
+        req(input$text)  
         spacy_parse(input$text, lemma = TRUE, pos = TRUE)
     })
     
     output$table <- renderDT({
-        req(results())  # ensure results are computed before rendering the table
+        req(results())
         results()
-    }, options = list(pageLength = 10))  # show 10 entries per page by default
+    }, options = list(pageLength = 10))
 }
 
 # Run the Shiny App
