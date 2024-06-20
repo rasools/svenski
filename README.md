@@ -14,20 +14,28 @@ Svenski is a Shiny app designed to assist users in learning Swedish by integrati
 
 ## Screenshots
 
-### Whole App
-![Whole App](readme_pics/whole_app.png)
-
-### Translation Feature
-![Translation Feature](readme_pics/mobile_view.jpg)
-
-### Text Analysis Results
-![Text Analysis Results](readme_pics/settings.png)
-
-### Generated Audio and Picture
-![Generated Audio and Picture](readme_pics/Generate_pic.png)
-
-### Anki Card Creation
-![Anki Card Creation](readme_pics/Choose_deck.png)
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+    <div style="flex: 1; min-width: 200px;">
+        <img src="readme_pics/whole_app.png" alt="Whole App" style="max-width: 100%; height: auto;">
+        <p style="text-align: center;">Whole App</p>
+    </div>
+    <div style="flex: 1; min-width: 200px;">
+        <img src="readme_pics/mobile_view.jpg" alt="Translation Feature" style="max-width: 100%; height: auto;">
+        <p style="text-align: center;">Translation Feature</p>
+    </div>
+    <div style="flex: 1; min-width: 200px;">
+        <img src="readme_pics/settings.png" alt="Text Analysis Results" style="max-width: 100%; height: auto;">
+        <p style="text-align: center;">Text Analysis Results</p>
+    </div>
+    <div style="flex: 1; min-width: 200px;">
+        <img src="readme_pics/Generate_pic.png" alt="Generated Audio and Picture" style="max-width: 100%; height: auto;">
+        <p style="text-align: center;">Generated Audio and Picture</p>
+    </div>
+    <div style="flex: 1; min-width: 200px;">
+        <img src="readme_pics/Choose_deck.png" alt="Anki Card Creation" style="max-width: 100%; height: auto;">
+        <p style="text-align: center;">Anki Card Creation</p>
+    </div>
+</div>
 
 ## Installation
 
