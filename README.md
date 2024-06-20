@@ -12,28 +12,12 @@ Svenski is a Shiny app designed to assist users in learning Swedish by integrati
 - **Image Generation**: Create images based on example sentences using DALL-E.
 - **Anki Integration**: Create Anki flashcards with detailed information and media to assist in learning.
 
-## Screenshots
+## App view
 
 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
     <div style="flex: 1; min-width: 200px;">
         <img src="readme_pics/whole_app.png" alt="Whole App" style="max-width: 100%; height: auto;">
         <p style="text-align: center;">Whole App</p>
-    </div>
-    <div style="flex: 1; min-width: 200px;">
-        <img src="readme_pics/mobile_view.jpg" alt="Translation Feature" style="max-width: 100%; height: auto;">
-        <p style="text-align: center;">Translation Feature</p>
-    </div>
-    <div style="flex: 1; min-width: 200px;">
-        <img src="readme_pics/settings.png" alt="Text Analysis Results" style="max-width: 100%; height: auto;">
-        <p style="text-align: center;">Text Analysis Results</p>
-    </div>
-    <div style="flex: 1; min-width: 200px;">
-        <img src="readme_pics/Generate_pic.png" alt="Generated Audio and Picture" style="max-width: 100%; height: auto;">
-        <p style="text-align: center;">Generated Audio and Picture</p>
-    </div>
-    <div style="flex: 1; min-width: 200px;">
-        <img src="readme_pics/Choose_deck.png" alt="Anki Card Creation" style="max-width: 100%; height: auto;">
-        <p style="text-align: center;">Anki Card Creation</p>
     </div>
 </div>
 
