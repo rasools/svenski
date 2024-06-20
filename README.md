@@ -14,17 +14,20 @@ Svenski is a Shiny app designed to assist users in learning Swedish by integrati
 
 ## Screenshots
 
+### Whole App
+![Whole App](readme_pics/whole_app.png)
+
 ### Translation Feature
-![Translation Feature](readme_pics/Skärmavbild%202024-06-20%20kl.%2013.09.02.png)
+![Translation Feature](readme_pics/mobile_view.jpg)
 
 ### Text Analysis Results
-![Text Analysis Results](readme_pics/Skärmavbild%202024-06-20%20kl.%2013.09.20.png)
+![Text Analysis Results](readme_pics/settings.png)
 
 ### Generated Audio and Picture
-![Generated Audio and Picture](readme_pics/Skärmavbild%202024-06-20%20kl.%2013.09.34.png)
+![Generated Audio and Picture](readme_pics/Generate_pic.png)
 
 ### Anki Card Creation
-![Anki Card Creation](readme_pics/Skärmavbild%202024-06-20%20kl.%2013.10.55.png)
+![Anki Card Creation](readme_pics/Choose_deck.png)
 
 ## Installation
 
