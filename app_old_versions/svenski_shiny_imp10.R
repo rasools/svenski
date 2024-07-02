@@ -144,25 +144,17 @@ server <- function(input, output, session) {
   
   observeEvent(input$generateImage, {
     req(values$results)
-    example_row <- which(grepl("example sentence", values$results$Property))[1]
+    example_row <- which(grepl("Meaning in English", values$results$Property))[1]
     if (!is.na(example_row)) {
-      example_sentence <- values$results$Details[example_row]
+      dallEprompt <- values$results$Details[example_row]
     } else {
-      example_sentence <- NULL
+      dallEprompt <- NULL
     }
     
-    example_sentence <- gsub("\\(.*\\)", "", example_sentence)
-    example_sentence <- trimws(example_sentence)
-    
-    if (is.null(example_sentence) || nchar(example_sentence) < 10) {
-      showNotification("No valid example sentence found for generating image.", type = "error")
-      return()
-    }
-    
-    print(paste("Prompt for DALL-E:", example_sentence))
+    print(paste("Prompt for DALL-E:", dallEprompt))
     
     image_url <- tryCatch({
-      dallE(example_sentence, values$apiKey)
+      dallE(dallEprompt, values$apiKey)
     }, error = function(e) {
       showNotification("Failed to generate image. Please check the prompt.", type = "error")
       return(NULL)
@@ -193,23 +185,33 @@ server <- function(input, output, session) {
   observeEvent(input$readExamples, {
     req(values$results)
     
+    # Generate audio files only for rows after line 3
     audio_files <- lapply(seq_len(nrow(values$results)), function(i) {
-      text_to_read <- values$results$Details[i]
-      openai_tts(text_to_read, values$ttsModel, api_key = values$apiKey)
+      if (i > 3) {
+        text_to_read <- values$results$Details[i]
+        # Extract text before parentheses
+        text_to_read <- sub("\\s*\\(.*\\)$", "", text_to_read)
+        openai_tts(text_to_read, values$ttsModel, api_key = values$apiKey)
+      } else {
+        NULL
+      }
     })
     
     values$audio <- audio_files
     
     values$results$Audio <- sapply(seq_len(length(audio_files)), function(i) {
-      audio_content <- audio_files[[i]]
-      audio_src <- base64enc::base64encode(audio_content)
-      as.character(tags$div(
-        tags$audio(src = paste0("data:audio/mp3;base64,", audio_src), type = "audio/mp3", controls = TRUE),
-        actionButton(paste0("deleteAudio_", i), "Delete", class = "btn btn-danger btn-sm", onclick = sprintf('Shiny.setInputValue("deleteAudio", %d)', i))
-      ))
+      if (!is.null(audio_files[[i]])) {
+        audio_content <- audio_files[[i]]
+        audio_src <- base64enc::base64encode(audio_content)
+        as.character(tags$div(
+          tags$audio(src = paste0("data:audio/mp3;base64,", audio_src), type = "audio/mp3", controls = TRUE)
+        ))
+      } else {
+        ""
+      }
     })
     
-    showNotification("Audio files for each row have been generated.", type = "message")
+    showNotification("Audio files for rows after line 3 have been generated.", type = "message")
   })
   
   observeEvent(input$deleteAudio, {
@@ -241,6 +243,7 @@ server <- function(input, output, session) {
       prompt <- createPrompt(txt, "phrase", consolidatedtxt)
       response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
       if (is.null(response)) {
+        showNotification("Failed to get analysis results. Please try again.", type = "error")
         return()
       }
       values$results <- parseResults(response)
@@ -248,6 +251,7 @@ server <- function(input, output, session) {
       prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
       response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
       if (is.null(response)) {
+        showNotification("Failed to get analysis results. Please try again.", type = "error")
         return()
       }
       values$results <- parseResults(response)
@@ -257,6 +261,7 @@ server <- function(input, output, session) {
         prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
         response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         if (is.null(response)) {
+          showNotification("Failed to get analysis results. Please try again.", type = "error")
           return()
         }
         values$results <- parseResults(response)
@@ -264,6 +269,7 @@ server <- function(input, output, session) {
         prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
         response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         if (is.null(response)) {
+          showNotification("Failed to get analysis results. Please try again.", type = "error")
           return()
         }
         values$results <- parseResults(response)
@@ -271,6 +277,7 @@ server <- function(input, output, session) {
         prompt <- createPrompt(res$Details[7], consolidatedtxt$pos[1], consolidatedtxt)
         response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         if (is.null(response)) {
+          showNotification("Failed to get analysis results. Please try again.", type = "error")
           return()
         }
         values$results <- parseResults(response)
@@ -278,6 +285,7 @@ server <- function(input, output, session) {
         prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
         response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         if (is.null(response)) {
+          showNotification("Failed to get analysis results. Please try again.", type = "error")
           return()
         }
         values$results <- parseResults(response)
@@ -286,6 +294,7 @@ server <- function(input, output, session) {
     }
     print(prompt)
   }
+  
   
   createPrompt <- function(verb, pos, consolidatedtxt) {
     path_template <- sprintf("temp_tables/%s.txt", tolower(pos))
@@ -375,24 +384,51 @@ server <- function(input, output, session) {
     pos <- results$Details[results$Property == "Part of Speech"]
     pos <- ifelse(length(pos) == 0, "unknown", pos)
     
-    # Remove "Delete" from the rows
-    results$Audio <- gsub("Delete", "", results$Audio)
+    # Check if the audio column exists and contains data
+    has_audio <- "Audio" %in% names(results) && any(results$Audio != "")
+    
+    if (has_audio) {
+      results$Audio <- gsub("Delete", "", results$Audio)
+      audio_elements <- paste0("<br>", results$Audio[4])
+      front_content <- paste0(results$Details[4], audio_elements)
+    } else {
+      front_content <- results$Details[4]
+    }
+    
+    back_content <- paste0(
+      if (!is.null(image)) {
+        sprintf("<img src='data:image/jpeg;base64,%s' /><br>", image$data)
+      } else {
+        ""
+      },
+      paste(
+        apply(results, 1, function(row) {
+          # Ensure that row[3] exists and is not NA before checking its length
+          if (length(row) >= 3 && !is.na(row[3])) {
+            row_content <- paste(
+              sprintf("<span style='color: lightblue; font-style: italic;'>%s</span>", row[1]),
+              row[2],
+              sep = "<br>"
+            )
+            if (nchar(row[3]) > 0) {
+              row_content <- paste(row_content, row[3], sep = "<br>")
+            }
+          } else {
+            row_content <- paste(
+              sprintf("<span style='color: lightblue; font-style: italic;'>%s</span>", row[1]),
+              row[2],
+              sep = "<br>"
+            )
+          }
+          row_content
+        }),
+        collapse = "<br><br>"
+      )
+    )
     
     fields <- list(
-      Front = paste0(results$Details[4], "<br>", results$Audio[4]),
-      Back = paste0(
-        if (!is.null(image)) {
-          sprintf("<img src='data:image/jpeg;base64,%s' /><br>", image$data)
-        } else {
-          ""
-        },
-        paste(
-          apply(results, 1, function(row) {
-            paste(row[1], row[2], row[3], collapse = "<br>")
-          }),
-          collapse = "<br><br>"
-        )
-      )
+      Front = front_content,
+      Back = back_content
     )
     
     note <- list(
@@ -416,6 +452,7 @@ server <- function(input, output, session) {
     }
   }
   
+  
   # Retrieve the list of Anki decks
   observe({
     response <- httr::POST(
@@ -437,7 +474,7 @@ server <- function(input, output, session) {
       title = "Settings",
       passwordInput("apiKeyInput", "Enter API Key:", value = values$apiKey),
       selectInput("gptModelInput", "Choose ChatGPT Model:",
-                  choices = c("gpt-4" = "gpt-4", "gpt-3.5-turbo" = "gpt-3.5-turbo"),
+                  choices = c("gpt-4o" = "gpt-4o", "gpt-4" = "gpt-4", "gpt-3.5-turbo" = "gpt-3.5-turbo"),
                   selected = values$gptModel),
       selectInput("dalleModelInput", "Choose DALL-E Model:",
                   choices = c("dall-e-2" = "dall-e-2", "dall-e-3" = "dall-e-3"),
