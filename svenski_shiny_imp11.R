@@ -266,7 +266,7 @@ server <- function(input, output, session) {
       res <- parseResults(response)
       
       if (consolidatedtxt$pos[1] == "VERB") {
-        prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
+        prompt <- createPrompt(res$Details[4], consolidatedtxt$pos[1], consolidatedtxt)
         response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         if (is.null(response)) {
           showNotification("Failed to get analysis results. Please try again.", type = "error")
@@ -274,7 +274,7 @@ server <- function(input, output, session) {
         }
         values$results <- parseResults(response)
       } else if (consolidatedtxt$pos[1] == "NOUN") {
-        prompt <- createPrompt(res$Details[5], consolidatedtxt$pos[1], consolidatedtxt)
+        prompt <- createPrompt(res$Details[4], consolidatedtxt$pos[1], consolidatedtxt)
         response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         if (is.null(response)) {
           showNotification("Failed to get analysis results. Please try again.", type = "error")
@@ -282,7 +282,7 @@ server <- function(input, output, session) {
         }
         values$results <- parseResults(response)
       } else if (consolidatedtxt$pos[1] == "ADJ") {
-        prompt <- createPrompt(res$Details[7], consolidatedtxt$pos[1], consolidatedtxt)
+        prompt <- createPrompt(res$Details[4], consolidatedtxt$pos[1], consolidatedtxt)
         response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
         if (is.null(response)) {
           showNotification("Failed to get analysis results. Please try again.", type = "error")
