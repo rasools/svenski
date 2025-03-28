@@ -10,7 +10,7 @@ library(shinythemes)
 library(shinyjs)
 
 # Setting up Python environment
-Sys.setenv(RETICULATE_PYTHON = "/Users/rasools/miniconda3/envs/svenski/bin/python")
+Sys.setenv(RETICULATE_PYTHON = "/Users/rasools/miniconda3/envs/svenski4serve/bin/python")
 spacy_initialize(model = "sv_core_news_md")
 
 server <- function(input, output, session) {
@@ -144,20 +144,22 @@ server <- function(input, output, session) {
   
   observeEvent(input$generateImage, {
     req(values$results)
-    example_row <- which(grepl("example sentence", values$results$Property))[1]
-    if (!is.na(example_row)) {
-      example_sentence <- values$results$Details[example_row]
-    } else {
-      example_sentence <- NULL
-    }
+    # example_row <- which(grepl("example sentence", values$results$Property))[1]
+    # if (!is.na(example_row)) {
+    #   example_sentence <- values$results$Details[example_row]
+    # } else {
+    #   example_sentence <- NULL
+    # }
+    # 
+    # example_sentence <- gsub("\\(.*\\)", "", example_sentence)
+    # example_sentence <- trimws(example_sentence)
+    # 
+    # if (is.null(example_sentence) || nchar(example_sentence) < 10) {
+    #   showNotification("No valid example sentence found for generating image.", type = "error")
+    #   return()
+    # }
     
-    example_sentence <- gsub("\\(.*\\)", "", example_sentence)
-    example_sentence <- trimws(example_sentence)
-    
-    if (is.null(example_sentence) || nchar(example_sentence) < 10) {
-      showNotification("No valid example sentence found for generating image.", type = "error")
-      return()
-    }
+    example_sentence <- values$results$Details[4]
     
     print(paste("Prompt for DALL-E:", example_sentence))
     
@@ -185,42 +187,35 @@ server <- function(input, output, session) {
       values$image <- list(data = image_data, filename = image_filename)
     }
   })
+observeEvent(input$readExamples, {
+  req(values$results)
   
-  observeEvent(input$removePicture, {
-    values$image <- NULL
+  audio_files <- lapply(seq_len(nrow(values$results)), function(i) {
+    if (grepl("example", values$results$Property[i], ignore.case = TRUE)) {
+      text_to_read <- values$results$Details[i]
+      text_to_read <- sub("\\s*\\(.*\\)$", "", text_to_read)  # Remove trailing parentheses and content
+      openai_tts(text_to_read, values$ttsModel, api_key = values$apiKey)
+    } else {
+      NULL
+    }
   })
   
-  observeEvent(input$readExamples, {
-    req(values$results)
-    
-    # Generate audio files only for rows after line 3
-    audio_files <- lapply(seq_len(nrow(values$results)), function(i) {
-      if (i > 3) {
-        text_to_read <- values$results$Details[i]
-        # Extract text before parentheses
-        text_to_read <- sub("\\s*\\(.*\\)$", "", text_to_read)
-        openai_tts(text_to_read, values$ttsModel, api_key = values$apiKey)
-      } else {
-        NULL
-      }
-    })
-    
-    values$audio <- audio_files
-    
-    values$results$Audio <- sapply(seq_len(length(audio_files)), function(i) {
-      if (!is.null(audio_files[[i]])) {
-        audio_content <- audio_files[[i]]
-        audio_src <- base64enc::base64encode(audio_content)
-        as.character(tags$div(
-          tags$audio(src = paste0("data:audio/mp3;base64,", audio_src), type = "audio/mp3", controls = TRUE)
-        ))
-      } else {
-        ""
-      }
-    })
-    
-    showNotification("Audio files for rows after line 3 have been generated.", type = "message")
+  values$audio <- audio_files
+  
+  values$results$Audio <- sapply(seq_len(length(audio_files)), function(i) {
+    if (!is.null(audio_files[[i]])) {
+      audio_content <- audio_files[[i]]
+      audio_src <- base64enc::base64encode(audio_content)
+      as.character(tags$div(
+        tags$audio(src = paste0("data:audio/mp3;base64,", audio_src), type = "audio/mp3", controls = TRUE)
+      ))
+    } else {
+      ""
+    }
   })
+  
+  showNotification("Audio files for rows with 'example' have been generated.", type = "message")
+})
   
   observeEvent(input$deleteAudio, {
     req(input$deleteAudio)
@@ -241,7 +236,7 @@ server <- function(input, output, session) {
       ))
     })
   })
-
+  
   performAnalysis <- function(txt, modelName, apiKey) {
     values$image <- NULL
     values$audio <- list()
@@ -303,7 +298,7 @@ server <- function(input, output, session) {
     print(prompt)
   }
   
-
+  
   createPrompt <- function(verb, pos, consolidatedtxt) {
     path_template <- sprintf("temp_tables/%s.txt", tolower(pos))
     
@@ -400,19 +395,19 @@ server <- function(input, output, session) {
   
   createAnkiCard <- function(word, results, image, deckName) {
     # Extract part of speech
-    pos <- results$Details[results$Property == "Part of Speech"]
-    pos <- ifelse(length(pos) == 0, "unknown", pos)
+    property_clean <- trimws(tolower(results$Property))
+    pos_row <- which(property_clean == "part of speech")
+    
+    pos_tag <- if (length(pos_row) > 0) {
+      trimws(results$Details[pos_row])
+    } else {
+      "unknown"
+    }
     
     # Check if the audio column exists and contains data
     has_audio <- "Audio" %in% names(results) && any(results$Audio != "")
     
-    if (has_audio) {
-      results$Audio <- gsub("Delete", "", results$Audio)
-      audio_elements <- paste0("<br>", results$Audio[4])
-      front_content <- paste0(results$Details[4], audio_elements)
-    } else {
-      front_content <- results$Details[4]
-    }
+    front_content <- results$Details[4]
     
     back_content <- paste0(
       if (!is.null(image)) {
@@ -429,8 +424,8 @@ server <- function(input, output, session) {
               row[2],
               sep = "<br>"
             )
-            if (nchar(row[3]) > 0) {
-              row_content <- paste(row_content, row[3], sep = "<br>")
+            if (length(row) >= 3 && !is.na(row[3]) && nchar(row[3]) > 0) {
+              row_content <- paste(row_content, "<br>", row[3], sep = "<br>")
             }
           } else {
             row_content <- paste(
@@ -450,11 +445,27 @@ server <- function(input, output, session) {
       Back = back_content
     )
     
+    tags <- list(
+      pos_tag,
+      "svenski.v.12.0",
+      values$gptModel
+    )
+    
+    # include the DALL-E tag if an image was generated
+    if (!is.null(image)) {
+      tags <- c(tags, values$dalleModel)
+    }
+    
+    # include TTS tag if audio was generated for any row
+    if ("Audio" %in% names(results) && any(results$Audio != "")) {
+      tags <- c(tags, values$ttsModel)
+    }
+    
     note <- list(
       deckName = deckName,
       modelName = "Basic",
       fields = fields,
-      tags = list(pos)
+      tags = tags
     )
     
     response <- httr::POST(
@@ -588,7 +599,7 @@ ui <- fluidPage(
       margin-top: 20px;
     }
   "))),
-  titlePanel("Svenski: Din Anki-assistent för att Lära Dig Svenska!"),
+  titlePanel("Svenski: Din Anki-assistent för att Lära Dig Svenska! "),
   sidebarLayout(
     sidebarPanel(
       class = "sidebar-panel",
