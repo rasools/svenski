@@ -34,7 +34,7 @@ server <- function(input, output, session) {
     gptCost = 0,
     dalleCost = 0,
     ttsCost = 0,
-    appVersion = "svenski.v.13.0"
+    appVersion = "svenski.v.14.2"
   )
   
   # Function to query ChatGPT API
@@ -94,8 +94,13 @@ server <- function(input, output, session) {
   
   
   # Function to call OpenAI TTS API and save the response as an MP3 file
-  openai_tts <- function(text, model, voice = "alloy", api_key) {
+  openai_tts <- function(text, model, api_key) {
     url <- "https://api.openai.com/v1/audio/speech"
+    
+    # Define a list of allowed voices for shuffling
+    allowed_voices <- c("nova", "shimmer", "echo", "onyx", "fable", "alloy", "ash", "coral")
+    selected_voice <- sample(allowed_voices, 1)  # Randomly select a voice
+    print(paste(selected_voice))
     
     headers <- add_headers(
       `Authorization` = paste("Bearer", api_key),
@@ -104,7 +109,7 @@ server <- function(input, output, session) {
     
     body <- list(
       model = model,
-      voice = voice,
+      voice = selected_voice,
       input = text
     )
     
@@ -206,8 +211,8 @@ server <- function(input, output, session) {
   
   audio_files <- lapply(seq_len(nrow(values$results)), function(i) {
     if (grepl("example", values$results$Property[i], ignore.case = TRUE)) {
-      text_to_read <- values$results$Details[i]
-      text_to_read <- sub("\\s*\\(.*\\)$", "", text_to_read)  # Remove trailing parentheses and content
+      text_to_read <- sub("\\s*\\(.*?\\)\\s*$", "", values$results$Details[i])
+      print(paste("Text to read:", text_to_read))
       openai_tts(text_to_read, values$ttsModel, api_key = values$apiKey)
     } else {
       NULL
@@ -285,69 +290,65 @@ observeEvent(input$resultsTable_cell_edit, {
   values$results[i, j] <<- isolate(coerceValue(v, values$results[i, j]))
 })
   
-  performAnalysis <- function(txt, modelName, apiKey) {
-    values$image <- NULL
-    values$audio <- list()
-    values$pic_url <- NULL
-    consolidatedtxt <- entity_consolidate(spacy_parse(txt, lemma = FALSE, entity = TRUE, nounphrase = TRUE))
-    if (length(consolidatedtxt$token) > 1) {
-      prompt <- createPrompt(txt, "phrase", consolidatedtxt)
-      response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
-      if (is.null(response)) {
-        showNotification("Failed to get analysis results. Please try again.", type = "error")
-        return()
-      }
-      values$results <- parseResults(response)
+performAnalysis <- function(txt, modelName, apiKey) {
+  values$image <- NULL
+  values$audio <- list()
+  values$pic_url <- NULL
+  consolidatedtxt <- entity_consolidate(spacy_parse(txt, lemma = FALSE, entity = TRUE, nounphrase = TRUE))
+  
+  # Split the input text into words
+  words <- unlist(strsplit(txt, "\\s+"))
+  
+  # Logic for two-word inputs
+  if (length(words) == 2) {
+    pos_tags <- consolidatedtxt$pos[1:2]
+    if ("VERB" %in% pos_tags) {
+      pos <- "VERB"
     } else {
-      prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
-      response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
-      if (is.null(response)) {
-        showNotification("Failed to get analysis results. Please try again.", type = "error")
-        return()
-      }
-      values$results <- parseResults(response)
-      res <- parseResults(response)
-      
-      if (consolidatedtxt$pos[1] == "VERB") {
-        prompt <- createPrompt(res$Details[4], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
-        if (is.null(response)) {
-          showNotification("Failed to get analysis results. Please try again.", type = "error")
-          return()
-        }
-        values$results <- parseResults(response)
-      } else if (consolidatedtxt$pos[1] == "NOUN") {
-        prompt <- createPrompt(res$Details[4], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
-        if (is.null(response)) {
-          showNotification("Failed to get analysis results. Please try again.", type = "error")
-          return()
-        }
-        values$results <- parseResults(response)
-      } else if (consolidatedtxt$pos[1] == "ADJ") {
-        prompt <- createPrompt(res$Details[4], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
-        if (is.null(response)) {
-          showNotification("Failed to get analysis results. Please try again.", type = "error")
-          return()
-        }
-        values$results <- parseResults(response)
-      } else if (consolidatedtxt$pos[1] == "PRON") {
-        prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
-        response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
-        if (is.null(response)) {
-          showNotification("Failed to get analysis results. Please try again.", type = "error")
-          return()
-        }
-        values$results <- parseResults(response)
-      }
-      output$result <- NULL
+      pos <- "phrase"
     }
-    print(prompt)
+    prompt <- createPrompt(txt, pos, consolidatedtxt)
+    
+  } else if (length(words) > 2) {
+    # Treat multi-word inputs as a phrase
+    pos <- "phrase"
+    prompt <- createPrompt(txt, pos, consolidatedtxt)
+    
+  } else {
+    # Original logic for single-word inputs
+    prompt <- createPrompt(consolidatedtxt$token[1], consolidatedtxt$pos[1], consolidatedtxt)
   }
   
+  # Make API request
+  response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
+  if (is.null(response)) {
+    showNotification("Failed to get analysis results. Please try again.", type = "error")
+    return()
+  }
+  values$results <- parseResults(response)
   
-  createPrompt <- function(verb, pos, consolidatedtxt) {
+  # Additional checks for single-word inputs
+  if (length(words) == 1) {
+    res <- parseResults(response)
+    pos_type <- consolidatedtxt$pos[1]
+    
+    if (pos_type == "VERB" || pos_type == "NOUN" || pos_type == "ADJ" || pos_type == "PRON") {
+      prompt <- createPrompt(res$Details[4], pos_type, consolidatedtxt)
+      response <- chatGPT(prompt, modelName = modelName, apiKey = apiKey)
+      if (is.null(response)) {
+        showNotification("Failed to get analysis results. Please try again.", type = "error")
+        return()
+      }
+      values$results <- parseResults(response)
+    }
+  }
+  
+  output$result <- NULL
+  print(prompt)
+}
+
+  
+  createPrompt <- function(word, pos, consolidatedtxt) {
     path_template <- sprintf("temp_tables/%s.txt", tolower(pos))
     
     if (file.exists(path_template)) {
@@ -356,9 +357,16 @@ observeEvent(input$resultsTable_cell_edit, {
         lines[which(grepl("Category | Details", lines)):which(lines == "End |")],
         collapse = "\n"
       )
-      paste(verb, sprintf("is a Swedish %s. Please fill in the blanks:", tolower(pos)),
-            table_string, "For example sentences in the table, please provide sentences with atleast 15 words in each sentence, and put the meaning in English in the end of the sentence." ,sep = "\n")
-    } else { 
+      paste(
+        word, sprintf("is a Swedish %s. Please fill in the blanks in the table format provided below:", tolower(pos)),
+        table_string, 
+        "The table should strictly follow the format 'Category | Details' as shown.",
+        "For example sentences, please provide complete sentences that are simple and useful in daily communications (beginner/intermediate level).",
+        "Each example sentence should contain at least 15 words, and the meaning in English should be enclosed in parentheses at the end of the sentence.",
+        "Format for examples: 'Presens example sentence | Sentence in Swedish (Meaning in English)'.",
+        sep = " "
+      )
+    } else {
       paste("No template found for", pos)
     }
   }
@@ -557,15 +565,50 @@ observeEvent(input$resultsTable_cell_edit, {
   }
   
   
-  # Retrieve the list of Anki decks
-  observe({
+  # Get the Anki server URL from environment variables or use default for local development
+  anki_server_url <- Sys.getenv("ANKI_SERVER_URL", unset = "http://localhost:8765")
+  
+  # Function to send a request to the Anki server
+  send_anki_request <- function(url, body) {
     response <- httr::POST(
-      url = "http://localhost:8765",
-      body = toJSON(list(action = "deckNames", version = 6), auto_unbox = TRUE),
+      url = url,
+      body = toJSON(body, auto_unbox = TRUE),
       encode = "json"
     )
+    return(content(response))
+  }
+  
+  # Add a new note to Anki
+  observeEvent(input$addNote, {
+    note <- list(
+      deckName = input$deckName,
+      modelName = "Basic",
+      fields = list(
+        Front = input$front,
+        Back = input$back
+      ),
+      tags = list("auto")
+    )
     
-    result <- content(response)
+    result <- send_anki_request(
+      url = anki_server_url,
+      body = list(action = "addNote", version = 6, params = list(note = note))
+    )
+    
+    if (is.null(result$error)) {
+      showNotification("Anki card created successfully.", type = "message")
+    } else {
+      showNotification(paste("Failed to create Anki card:", result$error), type = "error")
+    }
+  })
+  
+  # Retrieve the list of Anki decks
+  observe({
+    result <- send_anki_request(
+      url = anki_server_url,
+      body = list(action = "deckNames", version = 6)
+    )
+    
     if (is.null(result$error)) {
       values$deckNames <- result$result
     } else {
@@ -573,25 +616,6 @@ observeEvent(input$resultsTable_cell_edit, {
     }
   })
   
-  observeEvent(input$settings, {
-    showModal(modalDialog(
-      title = "Settings",
-      passwordInput("apiKeyInput", "Enter API Key:", value = values$apiKey),
-      selectInput("gptModelInput", "Choose ChatGPT Model:",
-                  choices = c("gpt-4o" = "gpt-4o", "gpt-4" = "gpt-4", "gpt-3.5-turbo" = "gpt-3.5-turbo", "o3-mini-high" = "o3-mini-high", "gpt-4.5" = "gpt-4.5"),
-                  selected = values$gptModel),
-      selectInput("dalleModelInput", "Choose DALL-E Model:",
-                  choices = c("dall-e-2" = "dall-e-2", "dall-e-3" = "dall-e-3"),
-                  selected = values$dalleModel),
-      selectInput("ttsModelInput", "Choose TTS Model:",
-                  choices = c("tts-1" = "tts-1", "tts-2" = "tts-2"),
-                  selected = values$ttsModel),
-      footer = tagList(
-        modalButton("Close"),
-        actionButton("saveSettings", "Save Settings")
-      )
-    ))
-  })
   
   observeEvent(input$saveSettings, {
     values$apiKey <- input$apiKeyInput
