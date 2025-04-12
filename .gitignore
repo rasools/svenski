@@ -1,7 +1,11 @@
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
-svenski.Rproj
-/.quarto/
-övningar.txt
+# Ignore RStudio project files
+.Rproj.user/
+*.Rproj
+*.Rhistory
+*.RData
+
+# Ignore notebooks metadata
+.Rproj.user/shared/notebooks/
+
+# Ignore temp Swedish text files (like övningar.txt) – add pattern if needed
+*ningar.txt
