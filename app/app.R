@@ -371,24 +371,31 @@ performAnalysis <- function(txt, modelName, apiKey) {
     }
   }
   
-  parseResults <- function(response) {
-    # Clean up the response text
-    response <- trimws(response)
-    lines <- strsplit(response, "\n")[[1]]
+parseResults <- function(response) {
+  response <- trimws(response)
+  lines <- strsplit(response, "\n")[[1]]
+  lines <- lines[-1]
+  lines <- lines[-length(lines)]
+  if (lines[1] == "--- | ---") {
     lines <- lines[-1]
-    lines <- lines[-length(lines)]
-    # remove the first line of the table is empty remove it
-    if (lines[1] == "--- | ---") {
-      lines <- lines[-1]
-    }
-    keys <- sub("\\|.*", "", lines)
-    values <- sub(".*\\| ", "", lines)
-    
-    # Create a data frame
-    df <- data.frame(Property = keys, Details = values, stringsAsFactors = FALSE)
-    
-    return(df)
   }
+  keys <- sub("\\|.*", "", lines)
+  values <- sub(".*\\| ", "", lines)
+  
+  df <- data.frame(Property = keys, Details = values, stringsAsFactors = FALSE)
+  
+  # Find first "example" row (case insensitive)
+  example_index <- which(grepl("example", df$Property, ignore.case = TRUE))[1]
+  insert_at <- if (!is.na(example_index)) example_index else (nrow(df) + 1)
+  
+  # Insert "My Notes" row
+  note_row <- data.frame(Property = "My Note", Details = "", stringsAsFactors = FALSE)
+  df <- rbind(df[1:(insert_at - 1), ], note_row, df[insert_at:nrow(df), ])
+  
+  rownames(df) <- NULL
+  return(df)
+}
+  
   
   output$image <- renderUI({
     req(values$image)
